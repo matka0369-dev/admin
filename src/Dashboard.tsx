@@ -220,6 +220,8 @@ export function Dashboard() {
           title="Token history"
           desc="Every token movement across your agents and their players."
           refreshKey={ledgerVersion}
+          showDateFilter
+          agents={agents.map((a) => ({ id: a.id, username: a.username }))}
         />
       </Section>
 
