@@ -218,7 +218,7 @@ export function Dashboard() {
       <Section id="ledger">
         <LedgerCard
           title="Token history"
-          desc="Every token movement across your agents and their players."
+          desc="What you've granted your agents and what they've moved from it. Not their players' — that's each agent's own book."
           refreshKey={ledgerVersion}
           showDateFilter
           agents={agents.map((a) => ({ id: a.id, username: a.username }))}
