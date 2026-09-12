@@ -18,6 +18,7 @@ import {
   UserTable,
   api,
   useAuth,
+  useRoutedTabs,
   type NavItem,
   type Role,
   type UserSummary,
@@ -25,6 +26,7 @@ import {
 
 export function Dashboard() {
   const { user } = useAuth();
+  const { activeId, onSelectTab } = useRoutedTabs('overview');
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +130,8 @@ export function Dashboard() {
           : 'Your agents and their players. Capabilities come from roles this Admin granted you.'
       }
       nav={nav}
+      activeId={activeId}
+      onSelectTab={onSelectTab}
     >
       {error && <Alert tone="error">{error}</Alert>}
 
