@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FundAgentCard } from './FundAgentCard';
 import {
   ADMIN_ASSIGNABLE_PERMISSION_KEYS,
   AdminPredictionsCard,
@@ -54,6 +55,8 @@ export function Dashboard() {
   const canManageAgents = isNativeAdmin || (user?.permissions.includes('agent:manage') ?? false);
   const canManagePlayers = isNativeAdmin || (user?.permissions.includes('user:manage') ?? false);
   const canManageAny = canManageAgents || canManagePlayers;
+  // Granting tokens is the Admin's own authority; its staff need token:administer.
+  const canFund = isNativeAdmin || (user?.permissions.includes('token:administer') ?? false);
 
   // Sections gated on a permission this account doesn't hold don't render at
   // all, so the nav shouldn't offer to jump to them either.
@@ -62,6 +65,7 @@ export function Dashboard() {
       { id: 'overview', label: 'Overview' },
       ...(canManageAgents ? [{ id: 'create', label: 'Create account' }] : []),
       { id: 'agents', label: 'Your agents' },
+      ...(canFund ? [{ id: 'fund', label: 'Fund agents' }] : []),
       { id: 'players', label: 'Your players' },
       { id: 'rates', label: 'Rate card' },
       { id: 'games', label: 'Games' },
@@ -79,7 +83,7 @@ export function Dashboard() {
       { id: 'sessions', label: 'Your sessions' },
       { id: 'coming-next', label: 'Coming next' },
     ],
-    [canManageAgents, isNativeAdmin],
+    [canManageAgents, canFund, isNativeAdmin],
   );
 
   const load = useCallback(async () => {
@@ -179,6 +183,12 @@ export function Dashboard() {
           onChanged={() => void load()}
         />
       </Section>
+
+      {canFund && (
+        <Section id="fund">
+          <FundAgentCard agents={agents} onDone={() => void load()} />
+        </Section>
+      )}
 
       <Section id="players">
         <UserTable
