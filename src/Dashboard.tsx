@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FundAgentCard } from './FundAgentCard';
-import { PredictionsBoard } from './PredictionsBoard';
+import { PredictionsView } from './PredictionsView';
 import {
   ADMIN_ASSIGNABLE_PERMISSION_KEYS,
   AgentSummaryCard,
@@ -212,7 +212,7 @@ export function Dashboard() {
           across the whole subtree, and the per-player detail stays with the
           Agent that owns the Player. */}
       <Section id="predictions">
-        <PredictionsBoard agents={agents} />
+        <PredictionsView agents={agents} />
       </Section>
 
       {/* The persisted Admin<->Agent position. The Agent sees these exact

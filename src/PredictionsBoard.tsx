@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -48,7 +48,9 @@ interface Line {
 
 type SortKey = 'number' | 'amount';
 
-const fmt = (n: number) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(n);
+// No thousands separators, as on the dashboard's data-tables page.
+const rowsKey = (lines: Line[]) => lines.length;
+const fmt = (n: number) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2, useGrouping: false }).format(n);
 
 // First digit of a Jodi ("05" -> 0, "47" -> 4).
 const jodiDigit = (n: string) => Math.min(9, Math.max(0, Math.floor((parseInt(n, 10) || 0) / 10)));
@@ -59,6 +61,7 @@ function TypeTable({
   pct,
   showOdds,
   hitDigit,
+  winner,
 }: {
   typeId: PredictionType;
   lines: Line[];
@@ -66,7 +69,10 @@ function TypeTable({
   showOdds: boolean;
   /** The declared open ank: the Jodi group starting with it is highlighted. */
   hitDigit: number | null;
+  /** The declared winning number for this (non-Jodi) type, as the picked-number string. */
+  winner: string | null;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [sortKey, setSortKey] = useState<SortKey>('number');
   const [asc, setAsc] = useState(true);
 
@@ -97,16 +103,24 @@ function TypeTable({
   const arrow = (key: SortKey) => (sortKey === key ? (asc ? ' ▲' : ' ▼') : '');
 
   const isJodi = typeId === 'JODI';
+
+  // Bring the winning row into view inside this table's scroll box.
+  useEffect(() => {
+    const box = scrollRef.current;
+    const row = box?.querySelector<HTMLElement>('.pb-hit, .pb-hit-group');
+    if (!box || !row) return;
+    box.scrollTop += row.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 3;
+  }, [winner, hitDigit, rowsKey(lines)]); // eslint-disable-line react-hooks/exhaustive-deps
   // Jodi rows are grouped by first digit with a subtotal, as the mdash page
   // does — only while sorted by number, since a group means nothing otherwise.
   const grouped = isJodi && sortKey === 'number' && asc;
 
-  const copyAll = () => sorted.map((l) => `${l.number}: ${l.amount}`).join('\n');
+  const copyAll = () => sorted.map((l) => `${l.number}-${l.amount}`).join('\n');
   const copyJodiGroup = (digit: number) => {
     const amounts = new Map(shown.map((l) => [l.number.padStart(2, '0'), l.amount]));
     return Array.from({ length: 10 }, (_, i) => {
       const key = `${digit}${i}`;
-      return `${key}: ${amounts.get(key) ?? 0}`;
+      return `${key}-${amounts.get(key) ?? 0}`;
     }).join('\n');
   };
 
@@ -149,7 +163,7 @@ function TypeTable({
         )}
         <CopyButton getText={copyAll} />
       </header>
-      <div className="pb-table__scroll">
+      <div className="pb-table__scroll" ref={scrollRef}>
         <table className="pb-grid">
           <thead>
             <tr>
@@ -185,8 +199,11 @@ function TypeTable({
                   {showOdds && <td />}
                 </tr>
               ) : (
-                <tr key={r.line.number} className={isJodi && jodiDigit(r.line.number) === hitDigit ? 'pb-hit' : undefined}>
-                  <td className="pb-strong">{r.line.number}</td>
+                <tr key={r.line.number} className={
+                    isJodi ? (jodiDigit(r.line.number) === hitDigit ? 'pb-hit' : undefined) : winner !== null && r.line.number === winner ? 'pb-hit' : undefined
+                  }
+                >
+                  <td className="pb-strong">{r.line.number} —</td>
                   <td className="pb-num">{fmt(r.line.amount)}</td>
                   {showOdds && <td className="pb-num">{r.line.odds === null ? '—' : `${r.line.odds}x`}</td>}
                 </tr>
@@ -212,7 +229,11 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Every filter change refetches; a slower earlier response must not overwrite a newer one.
+  const latestLoad = useRef(0);
+
   const load = useCallback(async () => {
+    const id = ++latestLoad.current;
     setLoading(true);
     try {
       const res = await api.aggregatePredictions({
@@ -220,13 +241,14 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
         ...(date ? { date } : {}),
         ...(agentIds.length ? { agentIds } : {}),
       });
+      if (id !== latestLoad.current) return;
       setRows(res.rows);
       setSingleAgent(res.singleAgent);
       setError(null);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
+      if (id === latestLoad.current) setError(e instanceof ApiError ? e.message : String(e));
     } finally {
-      setLoading(false);
+      if (id === latestLoad.current) setLoading(false);
     }
   }, [gameId, date, agentIds]);
 
@@ -295,6 +317,29 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
   const single = gameId ? results.find((r) => r.gameId === gameId) ?? null : null;
   const hitDigit = single?.openSingle ?? null;
   const declared = results.filter((r) => r.openPana || r.closePana);
+
+  // The declared winning number of each non-Jodi type, as a picked-number string.
+  // Jodi is highlighted by its open-ank group instead; the Sangams have no single winner.
+  const winnerFor = (typeId: PredictionType): string | null => {
+    if (!single) return null;
+    const s = (n: number | null) => (n === null ? null : String(n));
+    switch (typeId) {
+      case 'OPEN_SINGLE':
+        return s(single.openSingle);
+      case 'CLOSE_SINGLE':
+        return s(single.closeSingle);
+      case 'OPEN_SINGLE_PANA':
+      case 'OPEN_DOUBLE_PANA':
+      case 'OPEN_TRIPLE_PANA':
+        return single.openPana;
+      case 'CLOSE_SINGLE_PANA':
+      case 'CLOSE_DOUBLE_PANA':
+      case 'CLOSE_TRIPLE_PANA':
+        return single.closePana;
+      default:
+        return null;
+    }
+  };
 
   const toggleAgent = (id: string) =>
     setAgentIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -402,8 +447,8 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
                 })}
               </div>
               <div className="pb-sub">
-                {hitDigit !== null
-                  ? `Jodi ${hitDigit}0–${hitDigit}9 highlighted below`
+                {single.openPana || single.closePana
+                  ? 'Winning numbers are highlighted in each table below'
                   : 'No result declared for this game yet.'}
               </div>
             </>
@@ -435,7 +480,7 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
       ) : (
         <div className="pb-tables">
           {byType.map(([typeId, lines]) => (
-            <TypeTable key={typeId} typeId={typeId} lines={lines} pct={pctUse} showOdds={singleAgent} hitDigit={hitDigit} />
+            <TypeTable key={typeId} typeId={typeId} lines={lines} pct={pctUse} showOdds={singleAgent} hitDigit={hitDigit} winner={winnerFor(typeId)} />
           ))}
         </div>
       )}
