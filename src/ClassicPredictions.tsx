@@ -115,7 +115,7 @@ export function ClassicPredictions({ agents }: { agents: UserSummary[] }) {
               ))}
             </select>
           </Field>
-          <Field label="Date" hint="In the game's own timezone. Blank shows every date.">
+          <Field label="Date" hint="In the game's own timezone.">
             <input
               className="input"
               type="date"

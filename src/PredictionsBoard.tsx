@@ -25,8 +25,8 @@ import './predictionsBoard.css';
  * - The percentage is a display lens only. Nothing is stored or re-fetched.
  *
  * There is no Date column. The page shows one day at a time (today by default,
- * with Today / Yesterday buttons); clearing the date adds every day together,
- * so a number appears once with its combined amount.
+ * with Today / Yesterday buttons); the date is never blank, so a number appears
+ * once with that day's combined amount.
  */
 
 const TZ = 'Asia/Kolkata';
@@ -361,11 +361,8 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
             <Button size="sm" onClick={() => setDate(dayString(-1))}>
               Yesterday
             </Button>
-            <Button size="sm" onClick={() => setDate('')}>
-              All days
-            </Button>
           </div>
-          <div className="pb-sub">{date ? `Showing ${date}.` : 'Every day added together.'}</div>
+          <div className="pb-sub">Showing {date}.</div>
         </div>
 
         <div className="pb-card">

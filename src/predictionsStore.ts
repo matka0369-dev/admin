@@ -244,6 +244,9 @@ export function ensureAll() {
 
 export function setFilters(patch: Partial<Filters>) {
   const before = filters;
+  // Every day added together is rarely wanted, so the date is never blank: a
+  // cleared date field goes back to today instead of widening the query.
+  if (patch.date !== undefined && patch.date.trim() === '') patch = { ...patch, date: dayString(0) };
   filters = { ...filters, ...patch };
   emit();
   // The percentage is a display lens only, so it never refetches.
