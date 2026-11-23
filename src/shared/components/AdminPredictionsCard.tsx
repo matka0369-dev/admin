@@ -119,24 +119,6 @@ export function AdminPredictionsCard({ agents }: { agents: UserSummary[] }) {
   }
 
   const grandTotal = rows.reduce((sum, r) => sum + r.totalStake, 0);
-  const grandBets = rows.reduce((sum, r) => sum + r.betCount, 0);
-
-  // One line per bet type plus the whole page, for the Totals card.
-  const typeTotals = grouped.map(([typeId, typeRows]) => ({
-    typeId,
-    numbers: typeRows.length,
-    bets: typeRows.reduce((sum, r) => sum + r.betCount, 0),
-    tokens: typeRows.reduce((sum, r) => sum + r.totalStake, 0),
-  }));
-
-  function totalsToTsv(): string {
-    const lines = [['Type', 'Numbers', 'Bets', 'Tokens'].join('\t')];
-    for (const t of typeTotals) {
-      lines.push([PREDICTION_TYPE_LABEL[t.typeId], t.numbers, t.bets, t.tokens].join('\t'));
-    }
-    lines.push(['All types', rows.length, grandBets, grandTotal].join('\t'));
-    return lines.join('\n');
-  }
 
   return (
     <>
@@ -232,52 +214,8 @@ export function AdminPredictionsCard({ agents }: { agents: UserSummary[] }) {
           <Empty>Nothing matches that filter.</Empty>
         </Card>
       ) : (
-        <>
-        <Card
-          title="Totals"
-          desc="Every bet type, then the whole page."
-          flush
-          action={<CopyButton getText={totalsToTsv} />}
-        >
-          <TableWrap>
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th style={{ textAlign: 'right' }}>Numbers</th>
-                <th style={{ textAlign: 'right' }}>Bets</th>
-                <th style={{ textAlign: 'right' }}>Tokens</th>
-                {pctValid && <th style={{ textAlign: 'right' }}>−{pct}%</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {typeTotals.map((t) => (
-                <tr key={t.typeId}>
-                  <td className="cell-strong">{PREDICTION_TYPE_LABEL[t.typeId]}</td>
-                  <td className="cell-num" style={{ textAlign: 'right' }}>{t.numbers}</td>
-                  <td className="cell-num" style={{ textAlign: 'right' }}>{t.bets.toLocaleString()}</td>
-                  <td className="cell-num" style={{ textAlign: 'right' }}>{t.tokens.toLocaleString()}</td>
-                  {pctValid && (
-                    <td className="cell-num" style={{ textAlign: 'right' }}>{applyPct(t.tokens).toLocaleString()}</td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr style={{ fontWeight: 700 }}>
-                <td>All types</td>
-                <td className="cell-num" style={{ textAlign: 'right' }}>{rows.length}</td>
-                <td className="cell-num" style={{ textAlign: 'right' }}>{grandBets.toLocaleString()}</td>
-                <td className="cell-num" style={{ textAlign: 'right' }}>{grandTotal.toLocaleString()}</td>
-                {pctValid && (
-                  <td className="cell-num" style={{ textAlign: 'right' }}>{applyPct(grandTotal).toLocaleString()}</td>
-                )}
-              </tr>
-            </tfoot>
-          </TableWrap>
-        </Card>
-        {grouped.map(([typeId, typeRows]) => {
+        grouped.map(([typeId, typeRows]) => {
           const typeTotal = typeRows.reduce((sum, r) => sum + r.totalStake, 0);
-          const typeBets = typeRows.reduce((sum, r) => sum + r.betCount, 0);
           return (
             <Card
               key={typeId}
@@ -325,24 +263,10 @@ export function AdminPredictionsCard({ agents }: { agents: UserSummary[] }) {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr style={{ fontWeight: 700 }}>
-                    <td>Total</td>
-                    {!gameId && <td />}
-                    {!date && <td />}
-                    <td className="cell-num" style={{ textAlign: 'right' }}>{typeBets.toLocaleString()}</td>
-                    <td className="cell-num" style={{ textAlign: 'right' }}>{typeTotal.toLocaleString()}</td>
-                    {pctValid && (
-                      <td className="cell-num" style={{ textAlign: 'right' }}>{applyPct(typeTotal).toLocaleString()}</td>
-                    )}
-                    {singleAgent && <td />}
-                  </tr>
-                </tfoot>
               </TableWrap>
             </Card>
           );
-        })}
-        </>
+        })
       )}
     </>
   );
