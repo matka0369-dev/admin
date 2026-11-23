@@ -260,11 +260,8 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
   const hitDigit = single?.openSingle ?? null;
   const declared = results.filter((r) => r.openPana || r.closePana);
 
-  // The book for this game and day: what came in, what went out to winners, the difference.
-  const book = pnl.reduce(
-    (t, r) => ({ stake: t.stake + r.totalStake, paid: t.paid + r.totalPayout, net: t.net + r.net, pending: t.pending + r.pendingCount }),
-    { stake: 0, paid: 0, net: 0, pending: 0 },
-  );
+  // Your P&L for this game and day, at the rate you give your agents.
+  const book = pnl;
   const gameName = gameId ? games.find((g) => g.id === gameId)?.name : undefined;
 
   // The declared winning number of each non-Jodi type, as a picked-number string.
@@ -421,7 +418,7 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
           <p className="pb-card__title">P&amp;L{gameName ? ` · ${gameName}` : ' · all games'}</p>
           {pnlError ? (
             <span className="pb-bad">{pnlError}</span>
-          ) : pnl.length === 0 ? (
+          ) : !book || book.bets === 0 ? (
             <span className="pb-sub">No bets on this day.</span>
           ) : (
             <>
@@ -431,7 +428,8 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
                 <div className={book.net < 0 ? 'is-neg' : 'is-pos'}><span>Net</span><strong>{fmt(book.net)}</strong></div>
               </div>
               <div className="pb-sub">
-                {book.pending > 0 ? `${book.pending} bets still open — net so far.` : 'All bets graded.'}
+                At the rate you give your agents.
+                {book.pending > 0 ? ` ${book.pending} bets still open — not counted yet.` : ' All bets graded.'}
               </div>
             </>
           )}

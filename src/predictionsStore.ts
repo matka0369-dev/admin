@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { api, ApiError, type AgentSummaryRow, type AggregateRow, type GameForAdmin } from './shared';
+import { api, ApiError, type AggregateRow, type GameForAdmin } from './shared';
 import { fetchResults, type DayResult } from './resultsApi';
 
 /**
@@ -31,6 +31,18 @@ export interface Filters {
 
 export type View = 'board' | 'classic';
 
+export interface Pnl {
+  /** Every token staked on settled bets. */
+  stake: number;
+  /** What you pay on the winners, at the rate you give each agent. */
+  paid: number;
+  /** stake - paid: negative when players won. */
+  net: number;
+  /** Bets placed but not graded yet; they are not in the figures above. */
+  pending: number;
+  bets: number;
+}
+
 export interface Snapshot {
   filters: Filters;
   rows: AggregateRow[];
@@ -41,8 +53,8 @@ export interface Snapshot {
   fetchedAt: number | null;
   results: DayResult[];
   resultsError: string | null;
-  /** The book for the selected game and day: stake in, paid out, net. One row per agent. */
-  pnl: AgentSummaryRow[];
+  /** Your profit and loss for the selected game and day, at the rate you give your agents. */
+  pnl: Pnl | null;
   pnlError: string | null;
   games: GameForAdmin[];
   view: View;
@@ -90,14 +102,14 @@ let error: string | null = null;
 let fetchedAt: number | null = null;
 let results: DayResult[] = [];
 let resultsError: string | null = null;
-let pnl: AgentSummaryRow[] = [];
+let pnl: Pnl | null = null;
 let pnlError: string | null = null;
 let games: GameForAdmin[] = [];
 let gamesLoaded = false;
 
 const dataCache = new Map<string, DataEntry>();
 const resultCache = new Map<string, ResultEntry>();
-const pnlCache = new Map<string, { rows: AgentSummaryRow[]; at: number }>();
+const pnlCache = new Map<string, { data: Pnl; at: number }>();
 let pnlSeq = 0;
 let pnlInflight: { key: string; p: Promise<void> } | null = null;
 let dataSeq = 0;
@@ -235,7 +247,7 @@ export async function ensurePnl(force = false): Promise<void> {
   const key = pnlKey(filters);
   const hit = pnlCache.get(key);
   if (hit && !force && Date.now() - hit.at < FRESH_MS) {
-    pnl = hit.rows;
+    pnl = hit.data;
     pnlError = null;
     emit();
     return;
@@ -246,14 +258,25 @@ export async function ensurePnl(force = false): Promise<void> {
   const f = filters;
   const p = (async () => {
     try {
-      const r = await api.predictionSummary({ ...(f.gameId ? { gameId: f.gameId } : {}), date: f.date });
+      const q = { ...(f.gameId ? { gameId: f.gameId } : {}), date: f.date };
+      // Your result is the settlement: stake in and what you pay on the winners
+      // at the rate you give each agent. The summary only adds how many bets
+      // are still open, which a settlement does not count.
+      const [settled, summary] = await Promise.all([api.settlements(q), api.predictionSummary(q)]);
       if (id !== pnlSeq) return;
-      pnlCache.set(key, { rows: r, at: Date.now() });
-      pnl = r;
+      const data: Pnl = {
+        stake: settled.rows.reduce((t, r) => t + r.totalStaked, 0),
+        paid: settled.rows.reduce((t, r) => t + r.totalPayout, 0),
+        net: settled.rows.reduce((t, r) => t + r.net, 0),
+        pending: summary.reduce((t, r) => t + r.pendingCount, 0),
+        bets: summary.reduce((t, r) => t + r.betCount, 0),
+      };
+      pnlCache.set(key, { data, at: Date.now() });
+      pnl = data;
       pnlError = null;
     } catch (e) {
       if (id !== pnlSeq) return;
-      pnl = [];
+      pnl = null;
       pnlError = e instanceof ApiError ? e.message : String(e);
     }
     emit();
