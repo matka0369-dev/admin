@@ -1,46 +1,45 @@
-import { useState } from 'react';
-import { AdminPredictionsCard, type UserSummary } from './shared';
+import { type UserSummary } from './shared';
+import { ClassicPredictions } from './ClassicPredictions';
 import { PredictionsBoard } from './PredictionsBoard';
-
-type View = 'board' | 'classic';
-const KEY = 'predictsim.predictionsView';
-
-function initialView(): View {
-  try {
-    return localStorage.getItem(KEY) === 'classic' ? 'classic' : 'board';
-  } catch {
-    return 'board'; // storage can be blocked; the page works without it
-  }
-}
+import { getDefaultView, setDefaultView, setView, usePredictions } from './predictionsStore';
 
 /**
- * Both predictions views, one switch. "Board" is the dashboard-style layout;
- * "Classic" is the original card, unchanged. The choice is remembered per
- * browser as a convenience only.
+ * Both predictions views behind one switch, over one shared store.
+ *
+ * - The view you are on is kept in the store, so moving to another dashboard
+ *   tab and back leaves you where you were, with the same filters and data.
+ * - "Use as my default" saves the current view as the one this browser opens
+ *   to on a fresh visit. It is a per-browser setting (no server-side
+ *   preference exists), so it follows the browser, not the account.
  */
 export function PredictionsView({ agents }: { agents: UserSummary[] }) {
-  const [view, setView] = useState<View>(initialView);
-
-  function pick(v: View) {
-    setView(v);
-    try {
-      localStorage.setItem(KEY, v);
-    } catch {
-      /* ignore */
-    }
-  }
+  const { view } = usePredictions();
+  const isDefault = getDefaultView() === view;
 
   return (
     <>
-      <div className="pv-switch" role="group" aria-label="Predictions view">
-        <button type="button" aria-pressed={view === 'board'} onClick={() => pick('board')}>
-          Board
-        </button>
-        <button type="button" aria-pressed={view === 'classic'} onClick={() => pick('classic')}>
-          Classic
-        </button>
+      <div className="pv-bar">
+        <div className="pv-switch" role="group" aria-label="Predictions view">
+          <button type="button" aria-pressed={view === 'board'} onClick={() => setView('board')}>
+            Board
+          </button>
+          <button type="button" aria-pressed={view === 'classic'} onClick={() => setView('classic')}>
+            Classic
+          </button>
+        </div>
+        <label className="pv-default">
+          <input
+            type="checkbox"
+            checked={isDefault}
+            // A default always exists, so unticking has nothing to fall back to:
+            // the box is only ever ticked to make the current view the default.
+            disabled={isDefault}
+            onChange={() => setDefaultView(view)}
+          />
+          <span>{isDefault ? `${view === 'board' ? 'Board' : 'Classic'} is your default` : 'Use as my default'}</span>
+        </label>
       </div>
-      {view === 'board' ? <PredictionsBoard agents={agents} /> : <AdminPredictionsCard agents={agents} />}
+      {view === 'board' ? <PredictionsBoard agents={agents} /> : <ClassicPredictions agents={agents} />}
     </>
   );
 }

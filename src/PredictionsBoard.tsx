@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -6,14 +6,10 @@ import {
   Empty,
   PREDICTION_TYPE_LABEL,
   RefreshButton,
-  api,
-  ApiError,
-  type AggregateRow,
-  type GameForAdmin,
   type PredictionType,
   type UserSummary,
 } from './shared';
-import { fetchResults, type DayResult } from './resultsApi';
+import { dayString, ensureAll, refresh, setFilters, usePredictions } from './predictionsStore';
 import './predictionsBoard.css';
 
 /**
@@ -34,10 +30,6 @@ import './predictionsBoard.css';
  */
 
 const TZ = 'Asia/Kolkata';
-const dayString = (offsetDays: number) => {
-  const d = new Date(Date.now() + offsetDays * 86_400_000);
-  return d.toLocaleDateString('en-CA', { timeZone: TZ }); // YYYY-MM-DD
-};
 
 interface Line {
   number: string;
@@ -217,73 +209,23 @@ function TypeTable({
 }
 
 export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
-  const [games, setGames] = useState<GameForAdmin[]>([]);
-  const [rows, setRows] = useState<AggregateRow[]>([]);
-  const [singleAgent, setSingleAgent] = useState(false);
-  const [gameId, setGameId] = useState('');
-  const [agentIds, setAgentIds] = useState<string[]>([]);
-  const [date, setDate] = useState(dayString(0));
-  const [percent, setPercent] = useState('');
-  const [results, setResults] = useState<DayResult[]>([]);
-  const [resultsError, setResultsError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  // Every filter change refetches; a slower earlier response must not overwrite a newer one.
-  const latestLoad = useRef(0);
-
-  const load = useCallback(async () => {
-    const id = ++latestLoad.current;
-    setLoading(true);
-    try {
-      const res = await api.aggregatePredictions({
-        ...(gameId ? { gameId } : {}),
-        ...(date ? { date } : {}),
-        ...(agentIds.length ? { agentIds } : {}),
-      });
-      if (id !== latestLoad.current) return;
-      setRows(res.rows);
-      setSingleAgent(res.singleAgent);
-      setError(null);
-    } catch (e) {
-      if (id === latestLoad.current) setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      if (id === latestLoad.current) setLoading(false);
-    }
-  }, [gameId, date, agentIds]);
+  // Filters, rows and results all come from the shared store, so Board and
+  // Classic show the same data and switching view or tab costs no request.
+  const { filters, rows, singleAgent, loading, error, fetchedAt, results, resultsError, games } = usePredictions();
+  const { gameId, agentIds, date, percent } = filters;
+  const setGameId = (v: string) => setFilters({ gameId: v });
+  const setAgentIds = (v: string[]) => setFilters({ agentIds: v });
+  const setDate = (v: string) => setFilters({ date: v });
+  const setPercent = (v: string) => setFilters({ percent: v });
+  const load = refresh;
 
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  // Declared results follow the same day and game as the numbers. A blank date
-  // means "every day", which has no single result to show.
-  useEffect(() => {
-    if (!date) {
-      setResults([]);
-      setResultsError(null);
-      return;
-    }
-    let live = true;
-    fetchResults(date, gameId || undefined).then(
-      (r) => live && (setResults(r), setResultsError(null)),
-      (e) => live && (setResults([]), setResultsError(e instanceof Error ? e.message : String(e))),
-    );
-    return () => {
-      live = false;
-    };
-  }, [date, gameId]);
-
-  // Only labels the dropdown, so it loads once and stays out of `load`.
-  useEffect(() => {
-    void (async () => {
-      try {
-        setGames(await api.listGamesAsAdmin());
-      } catch {
-        // A failed game list degrades the filter to "All games".
-      }
-    })();
+    ensureAll(); // from cache when it is still fresh
   }, []);
+
+  const updated = fetchedAt
+    ? new Date(fetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: TZ })
+    : null;
 
   const pct = Number(percent);
   const pctOk = percent.trim() !== '' && Number.isFinite(pct) && pct >= 0 && pct <= 100;
@@ -342,7 +284,7 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
   };
 
   const toggleAgent = (id: string) =>
-    setAgentIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setAgentIds(agentIds.includes(id) ? agentIds.filter((x) => x !== id) : [...agentIds, id]);
 
   return (
     <div className="pb">
@@ -352,6 +294,7 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
           <div className="pb-metric">{fmt(grandRaw)}</div>
           <div className="pb-sub">
             {grandBets.toLocaleString()} bets · {byType.length} bet type{byType.length === 1 ? '' : 's'}
+            {updated && ` · updated ${updated}`}
           </div>
           <div className="pb-pct">
             <input
