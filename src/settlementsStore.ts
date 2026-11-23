@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
-import { api, ApiError, type SettlementRow } from './shared';
+import { api, ApiError } from './shared';
+import type { SettlementRowX } from './bill';
 
 /**
  * State for the Settlements page, outside the React tree, for the same reason
@@ -41,7 +42,7 @@ export interface Carry {
 
 export interface Snapshot {
   filters: Filters;
-  rows: SettlementRow[];
+  rows: SettlementRowX[];
   /** The day the rows are for (the latest settled day when none was asked for). */
   shownDate: string | null;
   loading: boolean;
@@ -77,7 +78,7 @@ export function setDefaultView(view: View) {
 
 let filters: Filters = { date: '', agentId: '', commission: '' };
 let view: View = getDefaultView();
-let rows: SettlementRow[] = [];
+let rows: SettlementRowX[] = [];
 let shownDate: string | null = null;
 let loading = true;
 let error: string | null = null;
@@ -86,7 +87,7 @@ let adjustments: Record<string, Adjustment[]> = {};
 let carry: Record<string, Carry> = {};
 let nextAdjId = 1;
 
-const cache = new Map<string, { rows: SettlementRow[]; date: string | null; at: number }>();
+const cache = new Map<string, { rows: SettlementRowX[]; date: string | null; at: number }>();
 let seq = 0;
 let inflight: { key: string; p: Promise<void> } | null = null;
 
