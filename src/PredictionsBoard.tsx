@@ -13,6 +13,7 @@ import {
   type PredictionType,
   type UserSummary,
 } from './shared';
+import { fetchResults, type DayResult } from './resultsApi';
 import './predictionsBoard.css';
 
 /**
@@ -57,11 +58,14 @@ function TypeTable({
   lines,
   pct,
   showOdds,
+  hitDigit,
 }: {
   typeId: PredictionType;
   lines: Line[];
   pct: number;
   showOdds: boolean;
+  /** The declared open ank: the Jodi group starting with it is highlighted. */
+  hitDigit: number | null;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('number');
   const [asc, setAsc] = useState(true);
@@ -130,6 +134,19 @@ function TypeTable({
         <span className="pb-chip" title={`${betTotal} bets`}>
           Total: {fmt(total)}
         </span>
+        {isJodi && hitDigit !== null && (
+          <span className="pb-chip pb-chip--hit">
+            Ank {hitDigit}
+            <button
+              type="button"
+              className="pb-icon"
+              title={`Copy ${hitDigit}0–${hitDigit}9`}
+              onClick={() => void navigator.clipboard?.writeText(copyJodiGroup(hitDigit))}
+            >
+              ⧉
+            </button>
+          </span>
+        )}
         <CopyButton getText={copyAll} />
       </header>
       <div className="pb-table__scroll">
@@ -152,7 +169,7 @@ function TypeTable({
           <tbody>
             {rows.map((r) =>
               r.kind === 'group' ? (
-                <tr key={`g${r.digit}`} className="pb-group">
+                <tr key={`g${r.digit}`} className={`pb-group ${isJodi && r.digit === hitDigit ? 'pb-hit-group' : ''}`}>
                   <td>
                     {r.digit} Total{' '}
                     <button
@@ -168,7 +185,7 @@ function TypeTable({
                   {showOdds && <td />}
                 </tr>
               ) : (
-                <tr key={r.line.number}>
+                <tr key={r.line.number} className={isJodi && jodiDigit(r.line.number) === hitDigit ? 'pb-hit' : undefined}>
                   <td className="pb-strong">{r.line.number}</td>
                   <td className="pb-num">{fmt(r.line.amount)}</td>
                   {showOdds && <td className="pb-num">{r.line.odds === null ? '—' : `${r.line.odds}x`}</td>}
@@ -190,6 +207,8 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
   const [agentIds, setAgentIds] = useState<string[]>([]);
   const [date, setDate] = useState(dayString(0));
   const [percent, setPercent] = useState('');
+  const [results, setResults] = useState<DayResult[]>([]);
+  const [resultsError, setResultsError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -214,6 +233,24 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Declared results follow the same day and game as the numbers. A blank date
+  // means "every day", which has no single result to show.
+  useEffect(() => {
+    if (!date) {
+      setResults([]);
+      setResultsError(null);
+      return;
+    }
+    let live = true;
+    fetchResults(date, gameId || undefined).then(
+      (r) => live && (setResults(r), setResultsError(null)),
+      (e) => live && (setResults([]), setResultsError(e instanceof Error ? e.message : String(e))),
+    );
+    return () => {
+      live = false;
+    };
+  }, [date, gameId]);
 
   // Only labels the dropdown, so it loads once and stays out of `load`.
   useEffect(() => {
@@ -253,6 +290,11 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
     0,
   );
   const grandBets = rows.reduce((s, r) => s + r.betCount, 0);
+
+  // With one game selected there is exactly one result to highlight against.
+  const single = gameId ? results.find((r) => r.gameId === gameId) ?? null : null;
+  const hitDigit = single?.openSingle ?? null;
+  const declared = results.filter((r) => r.openPana || r.closePana);
 
   const toggleAgent = (id: string) =>
     setAgentIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -337,6 +379,51 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
           </div>
           <div className="pb-sub">{date ? `Showing ${date}.` : 'Every day added together.'}</div>
         </div>
+
+        <div className="pb-card">
+          <p className="pb-card__title">Result</p>
+          {!date ? (
+            <span className="pb-sub">Pick a day to see its results.</span>
+          ) : resultsError ? (
+            <span className="pb-bad">{resultsError}</span>
+          ) : single ? (
+            <>
+              <div className="pb-result">
+                {(['Open', 'Close'] as const).map((side) => {
+                  const pana = side === 'Open' ? single.openPana : single.closePana;
+                  const ank = side === 'Open' ? single.openSingle : single.closeSingle;
+                  return (
+                    <div className="pb-cell" key={side}>
+                      <span className="pb-cell__label">{side}</span>
+                      <span className="pb-cell__pana">{pana ?? '—'}</span>
+                      <span className="pb-cell__ank">{ank ?? '—'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="pb-sub">
+                {hitDigit !== null
+                  ? `Jodi ${hitDigit}0–${hitDigit}9 highlighted below`
+                  : 'No result declared for this game yet.'}
+              </div>
+            </>
+          ) : declared.length > 0 ? (
+            <div className="pb-result-list">
+              {declared.map((r) => (
+                <div className="pb-result-row" key={r.gameId}>
+                  <span>{r.gameName}</span>
+                  <span className="pb-strong">
+                    {r.openPana ?? '—'}-{r.openSingle ?? '—'}
+                    {r.closePana ? ` / ${r.closePana}-${r.closeSingle}` : ''}
+                  </span>
+                </div>
+              ))}
+              <div className="pb-sub">Pick a game to see its result and highlight the Jodi.</div>
+            </div>
+          ) : (
+            <span className="pb-sub">No result declared for {gameId ? 'this game' : 'any game'} on this day.</span>
+          )}
+        </div>
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
@@ -348,7 +435,7 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
       ) : (
         <div className="pb-tables">
           {byType.map(([typeId, lines]) => (
-            <TypeTable key={typeId} typeId={typeId} lines={lines} pct={pctUse} showOdds={singleAgent} />
+            <TypeTable key={typeId} typeId={typeId} lines={lines} pct={pctUse} showOdds={singleAgent} hitDigit={hitDigit} />
           ))}
         </div>
       )}

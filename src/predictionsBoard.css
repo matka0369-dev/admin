@@ -88,3 +88,18 @@
   .pb-metric { font-size: 26px; }
   .pb-tables { grid-template-columns: 1fr; }
 }
+
+/* Result card + highlight of the declared ank's Jodi group */
+.pb-result { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pb-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border);
+}
+.pb-cell__label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.pb-cell__pana { font-family: var(--mono); font-size: 20px; font-weight: 700; }
+.pb-cell__ank { font-size: 13px; font-weight: 700; color: var(--accent-text); }
+.pb-result-list { display: flex; flex-direction: column; gap: 4px; max-height: 150px; overflow-y: auto; }
+.pb-result-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.pb-chip--hit { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+.pb-grid tbody tr.pb-hit td { background: var(--success-bg) !important; }
+.pb-grid tbody tr.pb-hit-group td { background: var(--success-bg); color: var(--success); }
