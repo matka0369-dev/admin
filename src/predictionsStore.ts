@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { api, ApiError, type AggregateRow, type GameForAdmin } from './shared';
+import { api, ApiError, type AgentSummaryRow, type AggregateRow, type GameForAdmin } from './shared';
 import { fetchResults, type DayResult } from './resultsApi';
 
 /**
@@ -41,6 +41,9 @@ export interface Snapshot {
   fetchedAt: number | null;
   results: DayResult[];
   resultsError: string | null;
+  /** The book for the selected game and day: stake in, paid out, net. One row per agent. */
+  pnl: AgentSummaryRow[];
+  pnlError: string | null;
   games: GameForAdmin[];
   view: View;
 }
@@ -87,11 +90,16 @@ let error: string | null = null;
 let fetchedAt: number | null = null;
 let results: DayResult[] = [];
 let resultsError: string | null = null;
+let pnl: AgentSummaryRow[] = [];
+let pnlError: string | null = null;
 let games: GameForAdmin[] = [];
 let gamesLoaded = false;
 
 const dataCache = new Map<string, DataEntry>();
 const resultCache = new Map<string, ResultEntry>();
+const pnlCache = new Map<string, { rows: AgentSummaryRow[]; at: number }>();
+let pnlSeq = 0;
+let pnlInflight: { key: string; p: Promise<void> } | null = null;
 let dataSeq = 0;
 let resultSeq = 0;
 // A request already on its way for the same filters is reused, not repeated
@@ -101,6 +109,7 @@ let resultInflight: { key: string; p: Promise<void> } | null = null;
 
 const dataKey = (f: Filters) => JSON.stringify([f.gameId, f.date, [...f.agentIds].sort()]);
 const resultKey = (f: Filters) => JSON.stringify([f.gameId, f.date]);
+const pnlKey = resultKey;
 
 // --- external-store plumbing --------------------------------------------------
 
@@ -108,7 +117,7 @@ const listeners = new Set<() => void>();
 let snapshot: Snapshot = build();
 
 function build(): Snapshot {
-  return { filters, rows, singleAgent, loading, error, fetchedAt, results, resultsError, games, view };
+  return { filters, rows, singleAgent, loading, error, fetchedAt, results, resultsError, pnl, pnlError, games, view };
 }
 function emit() {
   snapshot = build();
@@ -221,6 +230,41 @@ async function fetchResultsFor(id: number, key: string): Promise<void> {
   emit();
 }
 
+/** The book's profit and loss for the selected game and day. */
+export async function ensurePnl(force = false): Promise<void> {
+  const key = pnlKey(filters);
+  const hit = pnlCache.get(key);
+  if (hit && !force && Date.now() - hit.at < FRESH_MS) {
+    pnl = hit.rows;
+    pnlError = null;
+    emit();
+    return;
+  }
+  if (!force && pnlInflight?.key === key) return pnlInflight.p;
+
+  const id = ++pnlSeq;
+  const f = filters;
+  const p = (async () => {
+    try {
+      const r = await api.predictionSummary({ ...(f.gameId ? { gameId: f.gameId } : {}), date: f.date });
+      if (id !== pnlSeq) return;
+      pnlCache.set(key, { rows: r, at: Date.now() });
+      pnl = r;
+      pnlError = null;
+    } catch (e) {
+      if (id !== pnlSeq) return;
+      pnl = [];
+      pnlError = e instanceof ApiError ? e.message : String(e);
+    }
+    emit();
+  })();
+  pnlInflight = { key, p };
+  void p.finally(() => {
+    if (pnlInflight?.p === p) pnlInflight = null;
+  });
+  return p;
+}
+
 /** The game list only labels the dropdown, so it loads once per page visit. */
 export async function ensureGames(): Promise<void> {
   if (gamesLoaded) return;
@@ -238,6 +282,7 @@ export function ensureAll() {
   void ensureGames();
   void ensureData();
   void ensureResults();
+  void ensurePnl();
 }
 
 // --- actions --------------------------------------------------------------------
@@ -251,12 +296,16 @@ export function setFilters(patch: Partial<Filters>) {
   emit();
   // The percentage is a display lens only, so it never refetches.
   if (dataKey(before) !== dataKey(filters)) void ensureData();
-  if (resultKey(before) !== resultKey(filters)) void ensureResults();
+  if (resultKey(before) !== resultKey(filters)) {
+    void ensureResults();
+    void ensurePnl();
+  }
 }
 
 export function refresh() {
   void ensureData(true);
   void ensureResults(true);
+  void ensurePnl(true);
 }
 
 export function setView(v: View) {

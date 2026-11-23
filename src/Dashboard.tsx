@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FundAgentCard } from './FundAgentCard';
 import { PredictionsView } from './PredictionsView';
+import { SettlementsView } from './SettlementsView';
 import {
   ADMIN_ASSIGNABLE_PERMISSION_KEYS,
   AgentSummaryCard,
@@ -14,7 +15,6 @@ import {
   RatesSection,
   RequestQueueCard,
   Section,
-  SettlementsCard,
   Stat,
   UserTable,
   api,
@@ -218,7 +218,7 @@ export function Dashboard() {
       {/* The persisted Admin<->Agent position. The Agent sees these exact
           rows from the other side. */}
       <Section id="settlements">
-        <SettlementsCard />
+        <SettlementsView agents={agents} />
       </Section>
 
       <Section id="summary">

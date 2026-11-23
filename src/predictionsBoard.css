@@ -115,3 +115,11 @@
 .pv-switch { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }
 .pv-switch button { all: unset; cursor: pointer; padding: 5px 14px; border-radius: 999px; font-size: 13px; color: var(--text-muted); }
 .pv-switch button[aria-pressed='true'] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow-sm); }
+
+/* P&L summary: three small figures in a corner card */
+.pb-pnl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pb-pnl div { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); min-width: 0; }
+.pb-pnl span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.pb-pnl strong { font-size: 17px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pb-pnl .is-pos strong { color: var(--success); }
+.pb-pnl .is-neg strong { color: var(--danger); }

@@ -1,0 +1,17 @@
+/* Control rows: one height for inputs, dropdowns and buttons, so a Refresh or
+   Copy button no longer sits lower than the box beside it. Fields carry a
+   bottom margin for stacked forms, which pushes them above the buttons in a
+   bottom-aligned row; the small button size is shorter than an input. */
+.filter-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.filter-row .field { margin-bottom: 0; }
+.filter-row .input, .filter-row .select, .filter-row .btn, .filter-row .btn--sm {
+  box-sizing: border-box; height: 42px; padding-top: 0; padding-bottom: 0; font-size: 0.9rem;
+}
+.filter-row .btn, .filter-row .btn--sm { padding-left: 14px; padding-right: 14px; }
+
+/* The same in a card's header, where actions sit beside the title (Token
+   history: Refresh, an agent dropdown, a date, Clear). */
+.card__head .btn, .card__head .btn--sm, .card__head .input, .card__head .select {
+  box-sizing: border-box; height: 34px; padding-top: 0; padding-bottom: 0; font-size: 0.85rem;
+}
+.card__head .btn, .card__head .btn--sm { padding-left: 12px; padding-right: 12px; }

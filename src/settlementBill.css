@@ -1,0 +1,28 @@
+/* Settlement bill: a games table over a calculation panel, in the portal's tokens. */
+.sb-scroll { overflow-x: auto; }
+.sb-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.sb-table th, .sb-table td { padding: 8px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.sb-table thead th { background: var(--surface-2); font-size: 12px; color: var(--text-muted); }
+.sb-table tfoot td { font-weight: 700; background: var(--surface-2); border-bottom: 0; }
+.sb-num { text-align: right !important; font-variant-numeric: tabular-nums; }
+.sb-strong { font-weight: 600; }
+.sb-muted { color: var(--text-muted); }
+
+.sb-calc { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; max-width: 520px; margin-left: auto; }
+.sb-row { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; font-variant-numeric: tabular-nums; }
+.sb-result { font-weight: 700; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--surface-2); }
+.sb-result.is-positive { color: var(--success); background: var(--success-bg); }
+.sb-result.is-negative { color: var(--danger); background: var(--danger-bg); }
+.sb-final { font-size: 1.05rem; margin-top: 4px; }
+
+.sb-adj { display: grid; grid-template-columns: 1fr 64px 110px auto auto; gap: 8px; align-items: center; }
+.sb-adj .sb-label { color: var(--text-muted); font-size: 13px; }
+.sb-adj .sb-amt { text-align: right; }
+.sb-running { min-width: 64px; text-align: right; color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+.sb-actions { display: flex; justify-content: flex-start; }
+
+@media (max-width: 560px) {
+  .sb-calc { max-width: none; }
+  .sb-adj { grid-template-columns: 1fr 56px 90px; }
+  .sb-adj .sb-running, .sb-adj .btn { grid-column: auto; }
+}

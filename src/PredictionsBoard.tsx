@@ -211,7 +211,7 @@ function TypeTable({
 export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
   // Filters, rows and results all come from the shared store, so Board and
   // Classic show the same data and switching view or tab costs no request.
-  const { filters, rows, singleAgent, loading, error, fetchedAt, results, resultsError, games } = usePredictions();
+  const { filters, rows, singleAgent, loading, error, fetchedAt, results, resultsError, pnl, pnlError, games } = usePredictions();
   const { gameId, agentIds, date, percent } = filters;
   const setGameId = (v: string) => setFilters({ gameId: v });
   const setAgentIds = (v: string[]) => setFilters({ agentIds: v });
@@ -259,6 +259,13 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
   const single = gameId ? results.find((r) => r.gameId === gameId) ?? null : null;
   const hitDigit = single?.openSingle ?? null;
   const declared = results.filter((r) => r.openPana || r.closePana);
+
+  // The book for this game and day: what came in, what went out to winners, the difference.
+  const book = pnl.reduce(
+    (t, r) => ({ stake: t.stake + r.totalStake, paid: t.paid + r.totalPayout, net: t.net + r.net, pending: t.pending + r.pendingCount }),
+    { stake: 0, paid: 0, net: 0, pending: 0 },
+  );
+  const gameName = gameId ? games.find((g) => g.id === gameId)?.name : undefined;
 
   // The declared winning number of each non-Jodi type, as a picked-number string.
   // Jodi is highlighted by its open-ank group instead; the Sangams have no single winner.
@@ -407,6 +414,26 @@ export function PredictionsBoard({ agents }: { agents: UserSummary[] }) {
             </div>
           ) : (
             <span className="pb-sub">No result declared for {gameId ? 'this game' : 'any game'} on this day.</span>
+          )}
+        </div>
+
+        <div className="pb-card">
+          <p className="pb-card__title">P&amp;L{gameName ? ` · ${gameName}` : ' · all games'}</p>
+          {pnlError ? (
+            <span className="pb-bad">{pnlError}</span>
+          ) : pnl.length === 0 ? (
+            <span className="pb-sub">No bets on this day.</span>
+          ) : (
+            <>
+              <div className="pb-pnl">
+                <div><span>Stake</span><strong>{fmt(book.stake)}</strong></div>
+                <div><span>Paid</span><strong>{fmt(book.paid)}</strong></div>
+                <div className={book.net < 0 ? 'is-neg' : 'is-pos'}><span>Net</span><strong>{fmt(book.net)}</strong></div>
+              </div>
+              <div className="pb-sub">
+                {book.pending > 0 ? `${book.pending} bets still open — net so far.` : 'All bets graded.'}
+              </div>
+            </>
           )}
         </div>
       </div>
