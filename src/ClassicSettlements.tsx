@@ -134,15 +134,6 @@ export function ClassicSettlements() {
                   </div>
                   <div className="stat__hint">{r.net < 0 ? 'You owe' : 'Owed to you'}</div>
                 </div>
-                {((r as { agentShare?: number }).agentShare ?? 0) > 0 && (
-                  <div className="card stat">
-                    <div className="stat__label">Your share ({10 - ((r as { agentShare?: number }).agentShare ?? 0)}/10)</div>
-                    <div className="stat__value">
-                      <Signed value={(r as { yourResult?: number }).yourResult ?? 0} />
-                    </div>
-                    <div className="stat__hint">What changes hands; the agent bears the rest</div>
-                  </div>
-                )}
               </div>
             </div>
 

@@ -64,7 +64,7 @@ export function SettlementBill({ agents }: { agents: UserSummary[] }) {
               inputMode="decimal"
               value={commission}
               placeholder="0"
-              title="A working figure for agents with no cut set. Agents with a cut use it automatically."
+              title="Taken off the day's bet before the winnings. A working figure, not stored."
               onChange={(e) => setFilters({ commission: e.target.value })}
             />
           </Field>
@@ -145,18 +145,12 @@ function BillCard({ bill, day, commission }: { bill: AgentBill; day: string; com
         <Row label="Total bet amount" value={fmtAmount(bill.totalBet)} />
         {calc.commissionPct > 0 && (
           <>
-            <Row label={`${bill.agentShare > 0 ? "Agent's cut" : 'Commission'} (${calc.commissionPct}%)`} value={fmtAmount(calc.commission)} />
+            <Row label={`Commission (${calc.commissionPct}%)`} value={fmtAmount(calc.commission)} />
             <Row label="Remaining" value={fmtAmount(calc.remaining)} />
           </>
         )}
-        <Row
-          label={bill.agentShare > 0 ? 'Winning on the remaining, at your rate' : 'Total winning'}
-          value={fmtAmount(bill.agentShare > 0 ? calc.winningOnRemaining : bill.totalWin)}
-        />
-        <Row label={dueLabel(calc.adminSlice)} value={fmtAmount(calc.adminSlice)} cls={`sb-result ${tone(calc.adminSlice)}`} />
-        {bill.agentShare > 0 && (
-          <Row label="Agent bears (its cut of the loss)" value={fmtAmount(calc.agentSlice)} cls={`sb-day ${tone(calc.agentSlice)}`} />
-        )}
+        <Row label="Total winning" value={fmtAmount(bill.totalWin)} />
+        <Row label={dueLabel(calc.day)} value={fmtAmount(calc.day)} cls={`sb-result ${tone(calc.day)}`} />
 
         {adj.map((a, i) => (
           <div className="sb-adj" key={a.id}>
